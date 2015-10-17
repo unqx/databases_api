@@ -25,6 +25,14 @@ def forum_create(request):
 
             cursor = connection.cursor()
 
+            user_data = get_user_by_email(user)
+            if not user_data:
+                response.update({
+                    'code': 1,
+                    'response': 'User not found'
+                })
+                return JsonResponse(response)
+
             sql_select_raw = "SELECT id, owner_id FROM forum WHERE name = '{0}'"
 
             sql = sql_select_raw.format(name)
@@ -41,13 +49,6 @@ def forum_create(request):
                 }
                 return JsonResponse(response)
 
-            user_data = get_user_by_email(user)
-            if not user_data:
-                response.update({
-                    'code': 1,
-                    'response': 'User not found'
-                })
-                return JsonResponse(response)
 
             sql_insert_raw = "INSERT INTO forum (name, short_name, owner_id) VALUES ('{0}', '{1}', '{2}');"
 

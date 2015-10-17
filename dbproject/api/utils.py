@@ -48,3 +48,13 @@ def get_follow_data(id):
 
     return followers, following
 
+
+def get_forum_by_shortname(sn):
+    cursor = connection.cursor()
+    sql_raw = "SELECT * FROM forum WHERE short_name = '{}';"
+
+    sql = sql_raw.format(sn)
+    cursor.execute(sql)
+    data = cursor.fetchone()
+
+    return data
