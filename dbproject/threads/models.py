@@ -1,5 +1,6 @@
 from django.db import models
 from dbproject.forum.models import Forum
+from dbproject.users.models import User
 
 
 class Thread(models.Model):
@@ -11,6 +12,7 @@ class Thread(models.Model):
     message = models.TextField(max_length=1000)
     slug = models.CharField(max_length=100)
     is_deleted = models.BooleanField(default=False)
+    subscribed = models.ManyToManyField(User, db_table='subscriptions')
 
     class Meta:
         db_table = 'thread'

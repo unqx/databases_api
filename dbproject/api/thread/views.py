@@ -3,7 +3,7 @@ import datetime
 from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
-from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname
+from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_thread_by_id
 
 
 @csrf_exempt
@@ -75,7 +75,6 @@ def thread_create(request):
         cursor.execute(sql_select)
         sql_response = cursor.fetchone()
 
-
         if sql_response:
             response = {
                 'title': title,
@@ -106,6 +105,136 @@ def thread_create(request):
             'id': cursor.lastrowid,
             'date': date,
             'user': user_data[2]
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
+    })
+
+
+@csrf_exempt
+def thread_subscribe(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        user_email = request_params.get('user', None)
+        thread_id = request_params.get('thread', None)
+
+        if not (user_email and thread_id):
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        user_data = get_user_by_email(user_email)
+        if not user_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'User not found'
+            })
+
+        try:
+            thread_id = int(thread_id)
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong thread id param'
+            })
+
+        thread_data = get_thread_by_id(thread_id)
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql_raw = "INSERT IGNORE INTO subscriptions VALUES (null, '{0}', '{1}');"
+        sql = sql_raw.format(thread_id, user_data[0])
+        cursor.execute(sql)
+
+        response.update({
+            'user': user_data[2],
+            'thread': thread_id,
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
+    })
+
+
+@csrf_exempt
+def thread_unsubscribe(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        user_email = request_params.get('user', None)
+        thread_id = request_params.get('thread', None)
+
+        if not (user_email and thread_id):
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        user_data = get_user_by_email(user_email)
+        if not user_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'User not found'
+            })
+
+        try:
+            thread_id = int(thread_id)
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong thread id param'
+            })
+
+        thread_data = get_thread_by_id(thread_id)
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql_raw = "DELETE FROM subscriptions WHERE thread_id = '{0}' AND user_id = '{1}';"
+        sql = sql_raw.format(thread_id, user_data[0])
+        cursor.execute(sql)
+
+        response.update({
+            'user': user_data[2],
+            'thread': thread_id,
         })
 
     except ValueError:

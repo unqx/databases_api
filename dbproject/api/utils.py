@@ -25,7 +25,7 @@ def get_user_by_id(i):
     return data
 
 
-def get_follow_data(id):
+def get_follow_data(user_id):
     cursor = connection.cursor()
 
     sql_followers_raw = ("SELECT user.email "
@@ -33,7 +33,7 @@ def get_follow_data(id):
                          "LEFT JOIN user on user.id = user_user_follow.from_user_id "
                          "WHERE user_user_follow.to_user_id = '{0}'")
 
-    sql_followers = sql_followers_raw.format(id)
+    sql_followers = sql_followers_raw.format(user_id)
     cursor.execute(sql_followers)
     followers = cursor.fetchall()
 
@@ -42,7 +42,7 @@ def get_follow_data(id):
                          "LEFT JOIN user on user.id = user_user_follow.to_user_id "
                          "WHERE user_user_follow.from_user_id = '{0}'")
 
-    sql_following = sql_following_raw.format(id)
+    sql_following = sql_following_raw.format(user_id)
     cursor.execute(sql_following)
     following = cursor.fetchall()
 
@@ -56,5 +56,27 @@ def get_forum_by_shortname(sn):
     sql = sql_raw.format(sn)
     cursor.execute(sql)
     data = cursor.fetchone()
+
+    return data
+
+
+def get_thread_by_id(i):
+    cursor = connection.cursor()
+    sql_raw = "SELECT * FROM thread WHERE id = '{}';"
+
+    sql = sql_raw.format(i)
+    cursor.execute(sql)
+    data = cursor.fetchone()
+
+    return data
+
+
+def get_subscriptions(user_id):
+    cursor = connection.cursor()
+    sql_raw = "SELECT thread_id FROM subscriptions WHERE user_id = '{0}'"
+
+    sql = sql_raw.format(user_id)
+    cursor.execute(sql)
+    data = cursor.fetchall()
 
     return data
