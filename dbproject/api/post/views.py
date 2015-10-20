@@ -1,4 +1,5 @@
 import json
+import datetime
 from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
@@ -476,6 +477,186 @@ def post_vote(request):
         'dislikes': post_data[14],
         'points': post_data[15],
     })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
+    })
+
+
+@csrf_exempt
+def post_update(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+    try:
+        request_params = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    if not ('post' in request_params and 'message' in request_params):
+        return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+    post_id = request_params.get('post')
+
+    post_data = get_post_by_id(post_id)
+    if not post_data:
+        return JsonResponse({
+                'code': 1,
+                'response': 'Post not found'
+            })
+
+    message = request_params.get('message')
+
+    cursor = connection.cursor()
+    sql = "UPDATE post SET message=%s WHERE id = %s"
+
+    cursor.execute(sql, (message, post_id))
+
+    response.update({
+        'id': int(post_id),
+        'forum': get_forum_by_id(post_data[1])[4],
+        'thread': post_data[2],
+        'user': get_user_by_id(post_data[3])[2],
+        'message': message,
+        'date': post_data[5].strftime('%Y-%m-%d %H:%M:%S'),
+        'parent': post_data[6],
+        'isApproved': bool(post_data[8]),
+        'isHighlighted': bool(post_data[9]),
+        'isSpam': bool(post_data[10]),
+        'isEdited': bool(post_data[11]),
+        'isDeleted': bool(post_data[12]),
+        'likes': post_data[13],
+        'dislikes': post_data[14],
+        'points': post_data[15],
+    })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
+    })
+
+
+@csrf_exempt
+def post_list(request):
+    response = []
+    if not request.method == 'GET':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    if not ('forum' in request.GET or 'thread' in request.GET):
+        return JsonResponse({
+            'code': 3,
+            'response': 'Missing field'
+        })
+
+    if 'forum' in request.GET and 'thread' in request.GET:
+        return JsonResponse({
+            'code': 3,
+            'response': 'Provide only forum or thread'
+        })
+
+    if "since" in request.GET:
+        since = request.GET['since']
+        try:
+            since = datetime.datetime.strptime(since, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Since id param is wrong'
+            })
+    else:
+        since = 0
+
+    if "limit" in request.GET:
+        limit = request.GET['limit']
+        try:
+            limit = int(limit)
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Limit param is wrong'
+            })
+    else:
+        limit = None
+
+    if "order" in request.GET:
+        order = request.GET['order']
+        if order != 'asc' and order != 'desc':
+            return JsonResponse({
+                'code': 3,
+                'response': 'Order param is wrong'
+            })
+    else:
+        order = 'desc'
+
+    by_forum = 'forum' in request.GET
+
+    search_by = None
+
+    if by_forum:
+        forum = request.GET.get('forum')
+        forum_data = get_forum_by_shortname(forum)
+        if not forum_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Forum not found'
+            })
+        search_by = forum_data[0]
+    else:
+        thread_id = request.GET.get('thread')
+        thread_data = get_thread_by_id(thread_id)
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+        search_by = thread_id
+
+    cursor = connection.cursor()
+
+    sql = "SELECT * FROM post WHERE date>=%s AND "
+
+    sql += " forum_id = %s" if by_forum else " thread_id = %s"
+    sql += " ORDER BY date "
+    sql += order
+
+    if limit:
+        sql += " LIMIT %s"
+        cursor.execute(sql, (since, search_by, limit))
+    else:
+        cursor.execute(sql, (since, search_by))
+
+    data = cursor.fetchall()
+
+    for p in data:
+        response.append({
+            'id': int(p[0]),
+            'forum': get_forum_by_id(p[1])[4],
+            'thread': p[2],
+            'user': get_user_by_id(p[3])[2],
+            'message': p[4],
+            'date': p[5].strftime('%Y-%m-%d %H:%M:%S'),
+            'parent': p[6],
+            'isApproved': bool(p[8]),
+            'isHighlighted': bool(p[9]),
+            'isSpam': bool(p[10]),
+            'isEdited': bool(p[11]),
+            'isDeleted': bool(p[12]),
+            'likes': p[13],
+            'dislikes': p[14],
+            'points': p[15],
+        })
 
     return JsonResponse({
         'code': 0,

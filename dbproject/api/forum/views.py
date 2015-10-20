@@ -3,7 +3,7 @@ import datetime
 from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
-from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_subscriptions, get_follow_data
+from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_subscriptions, get_follow_data, get_thread_by_id
 
 
 @csrf_exempt
@@ -384,4 +384,175 @@ def forum_list_threads(request):
     return JsonResponse({
         'code': 0,
         'response': response,
+    })
+
+
+@csrf_exempt
+def forum_list_posts(request):
+    response = []
+    if not request.method == 'GET':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    if 'forum' not in request.GET:
+        return JsonResponse({
+            'code': 3,
+            'response': 'Missing field'
+        })
+
+    forum = request.GET.get('forum')
+    forum_data = get_forum_by_shortname(forum)
+    if not forum_data:
+        return JsonResponse({
+            'code': 1,
+            'response': 'Forum not found'
+        })
+
+    if "since" in request.GET:
+        since = request.GET['since']
+        try:
+            since = datetime.datetime.strptime(since, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Since id param is wrong'
+            })
+    else:
+        since = 0
+
+    if "limit" in request.GET:
+        limit = request.GET['limit']
+        try:
+            limit = int(limit)
+        except ValueError:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Limit param is wrong'
+            })
+    else:
+        limit = None
+
+    if "order" in request.GET:
+        order = request.GET['order']
+        if order != 'asc' and order != 'desc':
+            return JsonResponse({
+                'code': 3,
+                'response': 'Order param is wrong'
+            })
+    else:
+        order = 'desc'
+
+    user_related = False
+    forum_related = False
+    thread_related = False
+
+    if 'related' in request.GET:
+        related = request.GET.getlist('related')
+
+        for r in related:
+            if r != 'forum' and r != 'user' and r != 'thread':
+                return JsonResponse({
+                    'code': 3,
+                    'response': 'Wrong related params'
+                })
+        if 'forum' in related:
+            forum_related = True
+        if 'thread' in related:
+            thread_related = True
+        if 'user' in related:
+            user_related = True
+
+    cursor = connection.cursor()
+
+    sql = "SELECT * FROM post WHERE forum_id = %s AND date>=%s ORDER BY date "
+    sql += order
+
+    if limit:
+        sql += " LIMIT %s"
+        cursor.execute(sql, (forum_data[0], since, limit))
+    else:
+        cursor.execute(sql, (forum_data[0], since))
+
+    posts = cursor.fetchall()
+
+    for p in posts:
+        if forum_related:
+            forum_info = {
+                'id': forum_data[0],
+                'name': forum_data[1],
+                'short_name': forum_data[4],
+                'user': get_user_by_id(forum_data[3])[2],
+                'isDeleted': bool(forum_data[2])
+            }
+        else:
+            forum_info = forum_data[4]
+
+        thread_data = get_thread_by_id(p[2])
+        if thread_related:
+
+            thread_info = {
+                'id': thread_data[0],
+                'forum': forum_data[4],
+                'title': thread_data[2],
+                'isClosed': bool(thread_data[3]),
+                'user': get_user_by_id(thread_data[4])[2],
+                'date': thread_data[5].strftime('%Y-%m-%d %H:%M:%S'),
+                'message': thread_data[6],
+                'slug': thread_data[7],
+                'isDeleted': bool(thread_data[8]),
+                'dislikes': thread_data[9],
+                'likes': thread_data[10],
+                'points': thread_data[11],
+                'posts': thread_data[12]
+            }
+        else:
+            thread_info = thread_data[0]
+
+        user_data = get_user_by_id(p[3])
+        if user_related:
+            followers, following = get_follow_data(user_data[0])
+            subs = get_subscriptions(user_data[0])
+            user_info = {
+                'id': user_data[0],
+                'username': user_data[1],
+                'email': user_data[2],
+                'name': user_data[3],
+                'about': user_data[4],
+                'isAnonymous': bool(user_data[5]),
+                'followers': [
+                    f[0] for f in followers
+                ],
+                'following': [
+                    f[0] for f in following
+                ],
+                'subscriptions': [
+                    s[0] for s in subs
+                ]
+            }
+        else:
+            user_info = user_data[2]
+
+        response.append({
+            'id': p[0],
+            'forum': forum_info,
+            'thread': thread_info,
+            'user': user_info,
+            'message': p[4],
+            'date': p[5].strftime('%Y-%m-%d %H:%M:%S'),
+            'parent': p[6],
+            'isApproved': bool(p[8]),
+            'isHighlighted': bool(p[9]),
+            'isSpam': bool(p[10]),
+            'isEdited': bool(p[11]),
+            'isDeleted': bool(p[12]),
+            'likes': p[13],
+            'dislikes': p[14],
+            'points': p[15],
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
     })

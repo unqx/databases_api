@@ -7,4 +7,6 @@ urlpatterns = [
     url(r'^remove/', views.post_remove, name='post_remove'),
     url(r'^restore/', views.post_restore, name='post_restore'),
     url(r'^vote/', views.post_vote, name='post_vote'),
+    url(r'^update/', views.post_update, name='post_update'),
+    url(r'^list/', views.post_list, name='post_list'),
 ]

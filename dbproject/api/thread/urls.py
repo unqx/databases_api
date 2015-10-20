@@ -11,5 +11,7 @@ urlpatterns = [
     url(r'^remove/', views.thread_remove, name='thread_remove'),
     url(r'^restore/', views.thread_restore, name='thread_restore'),
     url(r'^update/', views.thread_update, name='thread_update'),
-
+    url(r'^vote/', views.thread_vote, name='thread_vote'),
+    url(r'^list/', views.thread_list, name='thread_list'),
+    url(r'^listPosts/', views.thread_list_posts, name='thread_list_posts'),
 ]
