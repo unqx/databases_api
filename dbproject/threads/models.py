@@ -14,5 +14,10 @@ class Thread(models.Model):
     is_deleted = models.BooleanField(default=False)
     subscribed = models.ManyToManyField(User, db_table='subscriptions')
 
+    likes = models.IntegerField(default=0)
+    dislikes = models.IntegerField(default=0)
+    points = models.IntegerField(default=0)
+    posts = models.IntegerField(default=0)
+
     class Meta:
         db_table = 'thread'

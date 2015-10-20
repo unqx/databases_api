@@ -4,5 +4,12 @@ import views
 urlpatterns = [
     url(r'^create/', views.thread_create, name='thread_create'),
     url(r'^subscribe/', views.thread_subscribe, name='thread_subscribe'),
-    url(r'^unsubscribe/', views.thread_unsubscribe, name='thread_unsubscribe')
+    url(r'^unsubscribe/', views.thread_unsubscribe, name='thread_unsubscribe'),
+    url(r'^details/', views.thread_details, name='thread_details'),
+    url(r'^close/', views.thread_close, name='thread_close'),
+    url(r'^open/', views.thread_open, name='thread_open'),
+    url(r'^remove/', views.thread_remove, name='thread_remove'),
+    url(r'^restore/', views.thread_restore, name='thread_restore'),
+    url(r'^update/', views.thread_update, name='thread_update'),
+
 ]

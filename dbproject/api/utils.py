@@ -60,6 +60,16 @@ def get_forum_by_shortname(sn):
     return data
 
 
+def get_forum_by_id(forum_id):
+    cursor = connection.cursor()
+    sql = "SELECT * FROM forum WHERE id = %s;"
+    cursor.execute(sql, (forum_id,))
+    data = cursor.fetchone()
+
+    return data
+
+
+
 def get_thread_by_id(i):
     cursor = connection.cursor()
     sql_raw = "SELECT * FROM thread WHERE id = '{}';"
@@ -78,5 +88,15 @@ def get_subscriptions(user_id):
     sql = sql_raw.format(user_id)
     cursor.execute(sql)
     data = cursor.fetchall()
+
+    return data
+
+
+def get_post_by_id(post_id):
+    cursor = connection.cursor()
+    sql = "SELECT * FROM post WHERE id = %s"
+
+    cursor.execute(sql, (post_id,))
+    data = cursor.fetchone()
 
     return data

@@ -3,7 +3,7 @@ import datetime
 from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
-from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_thread_by_id
+from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_thread_by_id, get_forum_by_id, get_follow_data, get_subscriptions
 
 
 @csrf_exempt
@@ -69,10 +69,9 @@ def thread_create(request):
 
         cursor = connection.cursor()
 
-        sql_select_raw = "SELECT * FROM thread WHERE title = '{0}' AND forum_id = '{1}'"
+        sql_select = "SELECT * FROM thread WHERE title = %s AND forum_id = %s"
 
-        sql_select = sql_select_raw.format(title, forum_data[0])
-        cursor.execute(sql_select)
+        cursor.execute(sql_select, (title, forum_data[0]))
         sql_response = cursor.fetchone()
 
         if sql_response:
@@ -90,10 +89,10 @@ def thread_create(request):
             }
             return JsonResponse({'code': 0, 'response': response})
 
-        sql_insert_raw = "INSERT INTO thread VALUES (null, '{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}')"
-        sql_insert = sql_insert_raw.format(forum_data[0], title, is_closed, user_data[0], date, message, slug, is_deleted)
+        sql_insert = "INSERT INTO thread VALUES (null, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0, 0)"
+        sql_insert_data = (forum_data[0], title, is_closed, user_data[0], date, message, slug, is_deleted)
 
-        cursor.execute(sql_insert)
+        cursor.execute(sql_insert, sql_insert_data)
 
         response.update({
             'title': title,
@@ -236,6 +235,351 @@ def thread_unsubscribe(request):
             'user': user_data[2],
             'thread': thread_id,
         })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response
+    })
+
+
+@csrf_exempt
+def thread_details(request):
+    response = {}
+    if not request.method == 'GET':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    if 'thread' not in request.GET:
+        return JsonResponse({
+            'code': 3,
+            'response': 'Missing field'
+        })
+
+    thread_id = request.GET.get('thread')
+
+    thread_data = get_thread_by_id(thread_id)
+    if not thread_data:
+        return JsonResponse({
+            'code': 1,
+            'response': 'Thread not found'
+        })
+
+    related = request.GET.getlist('related')
+    forum_data = get_forum_by_id(thread_data[1])
+    user_data = get_user_by_id(thread_data[4])
+
+    for case in related:
+        if case not in ['user', 'forum']:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong related param'
+            })
+
+    if 'forum' in related:
+        forum_info = {
+            'id': forum_data[0],
+            'name': forum_data[1],
+            'short_name': forum_data[4],
+            'user': get_user_by_id(forum_data[3])[2],
+            'isDeleted': bool(forum_data[2])
+        }
+    else:
+        forum_info = forum_data[4]
+
+    if 'user' in related:
+        followers, following = get_follow_data(user_data[0])
+        subs = get_subscriptions(user_data[0])
+        user_info = {
+            'username': user_data[1],
+            'email': user_data[2],
+            'name': user_data[3],
+            'about': user_data[4],
+            'isAnonymous': user_data[5],
+            'id': user_data[0],
+            'followers': [
+                f[0] for f in followers
+            ],
+            'following': [
+                f[0] for f in following
+            ],
+            'subscriptions': [
+                s[0] for s in subs
+            ]
+        }
+    else:
+        user_info = user_data[2]
+
+    response = {
+        'user': user_info,
+        'forum': forum_info,
+        'id': thread_data[0],
+        'title': thread_data[2],
+        'isClosed': bool(thread_data[3]),
+        'date': thread_data[5].strftime('%Y-%m-%d %H:%M:%S'),
+        'message': thread_data[6],
+        'slug': thread_data[7],
+        'isDeleted': bool(thread_data[8]),
+        'posts': thread_data[12] if not thread_data[8] else 0,
+        'likes': thread_data[10],
+        'dislikes': thread_data[9],
+        'points': thread_data[11],
+    }
+
+    return JsonResponse({
+        'code': 0,
+        'response': response,
+    })
+
+
+@csrf_exempt
+def thread_close(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        if 'thread' not in request_params:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        thread_id = request_params.get('thread')
+        thread_data = get_thread_by_id(thread_id)
+
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql = "UPDATE thread SET is_closed = 1 WHERE id = %s"
+        cursor.execute(sql, (thread_id,))
+
+        response.update({
+            'thread': thread_id,
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response,
+    })
+
+
+@csrf_exempt
+def thread_open(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        if 'thread' not in request_params:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        thread_id = request_params.get('thread')
+        thread_data = get_thread_by_id(thread_id)
+
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql = "UPDATE thread SET is_closed = 0 WHERE id = %s"
+        cursor.execute(sql, (thread_id,))
+
+        response.update({
+            'thread': thread_id,
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response,
+    })
+
+
+@csrf_exempt
+def thread_remove(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        if 'thread' not in request_params:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        thread_id = request_params.get('thread')
+        thread_data = get_thread_by_id(thread_id)
+
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql = "UPDATE thread SET is_deleted = 1 WHERE id = %s"
+        cursor.execute(sql, (thread_id,))
+
+        cursor.execute("UPDATE post SET is_deleted = 1 WHERE thread_id = %s", (thread_id, ))
+
+        response.update({
+            'thread': thread_id,
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response,
+    })
+
+
+@csrf_exempt
+def thread_restore(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+
+    try:
+        request_params = json.loads(request.body)
+
+        if 'thread' not in request_params:
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        thread_id = request_params.get('thread')
+        thread_data = get_thread_by_id(thread_id)
+
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        cursor = connection.cursor()
+        sql = "UPDATE thread SET is_deleted = 0 WHERE id = %s"
+        cursor.execute(sql, (thread_id,))
+
+        cursor.execute("UPDATE post SET is_deleted = 0 WHERE thread_id = %s", (thread_id, ))
+
+        response.update({
+            'thread': thread_id,
+        })
+
+    except ValueError:
+        return JsonResponse({
+            'code': 3,
+            'response': 'No JSON object could be decoded'
+        })
+
+    return JsonResponse({
+        'code': 0,
+        'response': response,
+    })
+
+
+@csrf_exempt
+def thread_update(request):
+    response = {}
+    if not request.method == 'POST':
+        return JsonResponse({
+            'code': 2,
+            'response': 'Method in not supported'
+        })
+    try:
+        request_params = json.loads(request.body)
+
+        if not ('thread' in request_params and 'message' in request_params and 'slug' in request_params):
+            return JsonResponse({
+                'code': 3,
+                'response': 'Missing field'
+            })
+
+        thread_id = request_params.get('thread')
+        message = request_params.get('message')
+        slug = request_params.get('slug')
+
+        thread_data = get_thread_by_id(thread_id)
+        if not thread_data:
+            return JsonResponse({
+                'code': 1,
+                'response': 'Thread not found'
+            })
+
+        sql = "UPDATE thread SET message = %s, slug = %s WHERE id = %s"
+
+        cursor = connection.cursor()
+
+        cursor.execute(sql, (message, slug, thread_id))
+
+        response = {
+            'user': get_user_by_id(thread_data[4])[2],
+            'forum': get_forum_by_id(thread_data[1])[4],
+            'id': thread_id,
+            'title': thread_data[2],
+            'isClosed': bool(thread_data[3]),
+            'date': thread_data[5].strftime('%Y-%m-%d %H:%M:%S'),
+            'message': message,
+            'slug': slug,
+            'isDeleted': bool(thread_data[8]),
+            'posts': thread_data[12] if not thread_data[8] else 0,
+            'likes': thread_data[10],
+            'dislikes': thread_data[9],
+            'points': thread_data[11],
+        }
 
     except ValueError:
         return JsonResponse({
