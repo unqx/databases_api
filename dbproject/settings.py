@@ -90,10 +90,9 @@ DATABASES = {
 }
 
 try:
-    import config
+    from dbproject.config import *
 except ImportError:
     pass
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
