@@ -327,7 +327,7 @@ def thread_details(request):
         'message': thread_data[6],
         'slug': thread_data[7],
         'isDeleted': bool(thread_data[8]),
-        'posts': thread_data[12] if not thread_data[8] else 0,
+        'posts': thread_data[12],
         'likes': thread_data[10],
         'dislikes': thread_data[9],
         'points': thread_data[11],
@@ -461,7 +461,7 @@ def thread_remove(request):
             })
 
         cursor = connection.cursor()
-        sql = "UPDATE thread SET is_deleted = 1 WHERE id = %s"
+        sql = "UPDATE thread SET is_deleted = 1, posts = 0 WHERE id = %s"
         cursor.execute(sql, (thread_id,))
 
         cursor.execute("UPDATE post SET is_deleted = 1 WHERE thread_id = %s", (thread_id, ))
@@ -510,8 +510,8 @@ def thread_restore(request):
             })
 
         cursor = connection.cursor()
-        sql = "UPDATE thread SET is_deleted = 0 WHERE id = %s"
-        cursor.execute(sql, (thread_id,))
+        sql = "UPDATE thread SET is_deleted = 0, posts=(SELECT COUNT(*) FROM post WHERE thread_id=%s) WHERE id = %s"
+        cursor.execute(sql, (thread_id, thread_id))
 
         cursor.execute("UPDATE post SET is_deleted = 0 WHERE thread_id = %s", (thread_id, ))
 
@@ -728,8 +728,6 @@ def thread_list(request):
         order = 'desc'
 
     by_forum = 'forum' in request.GET
-
-    search_by = None
 
     if by_forum:
         forum = request.GET.get('forum')
@@ -949,7 +947,7 @@ def thread_list_posts(request):
         response.append({
             'id': p[0],
             'forum': get_forum_by_id(p[1])[4],
-            'thread': thread_id,
+            'thread': int(thread_id),
             'user': get_user_by_id(p[3])[2],
             'message': p[4],
             'date': p[5].strftime('%Y-%m-%d %H:%M:%S'),
