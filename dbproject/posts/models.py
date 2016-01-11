@@ -21,3 +21,7 @@ class Post(models.Model):
 
     class Meta:
         db_table = 'post'
+
+        index_together = [
+            ['forum_id', 'user_id']
+        ]

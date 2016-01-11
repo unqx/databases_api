@@ -1,4 +1,5 @@
 from django.db import models
+from dbproject.forum.models import Forum
 
 
 class User(models.Model):

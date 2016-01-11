@@ -3,11 +3,8 @@ from django.db import connection
 
 def get_user_by_email(email):
     cursor = connection.cursor()
-
-    sql_raw = ("SELECT * FROM user WHERE email = '{0}'")
-    sql = sql_raw.format(email)
-
-    cursor.execute(sql)
+    sql = ("SELECT * FROM user WHERE email = %s")
+    cursor.execute(sql, (email,))
     data = cursor.fetchone()
 
     return data

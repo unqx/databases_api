@@ -3,7 +3,8 @@ import datetime
 from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
-from dbproject.api.utils import get_user_by_email, get_forum_by_id, get_forum_by_shortname, get_user_by_id, get_thread_by_id, get_post_by_id, get_follow_data, get_subscriptions
+from dbproject.api.utils import get_user_by_email, get_forum_by_id, get_forum_by_shortname, get_user_by_id, \
+    get_thread_by_id, get_post_by_id, get_follow_data, get_subscriptions
 
 
 @csrf_exempt
@@ -112,12 +113,13 @@ def post_create(request):
             'response': 'Forum does not exist'
         })
 
-    thread_data = get_thread_by_id(thread_id)
+    cursor.execute("SELECT id, posts FROM thread WHERE id=%s AND forum_id=%s", (thread_id, forum_data[0]))
+    thread_data = cursor.fetchone()
     if not thread_data:
         cursor.close()
         return JsonResponse({
             'code': 1,
-            'response': 'Thread does not exist'
+            'response': 'Thread does not exist or no such thread in provided forum'
         })
 
     user_data = get_user_by_email(user_email)
@@ -128,18 +130,8 @@ def post_create(request):
             'response': 'User does not exist'
         })
 
-    cursor.execute("SELECT 1 FROM thread WHERE id=%s AND forum_id=%s", (thread_id, forum_data[0]))
-    data = cursor.fetchone()
-    if data is None:
-        cursor.close()
-        return JsonResponse({
-            'code': 1,
-            'response': 'No such thread in provided forum'
-        })
-
     if not parent:
-        cursor.execute("SELECT posts FROM thread WHERE id = %s", (thread_id,))
-        posts_count = int(cursor.fetchone()[0])
+        posts_count = int(thread_data[1])
         post_path = '{0:011d}'.format(posts_count + 1)
 
     else:
@@ -152,7 +144,7 @@ def post_create(request):
                 'response': 'Wrong parent parameter type'
             })
 
-        cursor.execute("SELECT * FROM post WHERE id = %s AND thread_id = %s", (parent,thread_id))
+        cursor.execute("SELECT path FROM post WHERE id = %s AND thread_id = %s", (parent,thread_id))
 
         parent_post_data = cursor.fetchone()
         if not parent_post_data:
@@ -165,7 +157,7 @@ def post_create(request):
         cursor.execute("SELECT COUNT(*) FROM post WHERE parent = %s", (parent,))
 
         parent_childs = int(cursor.fetchone()[0])
-        post_path = parent_post_data[7] + '.' + '{0:011d}'.format(parent_childs + 1)
+        post_path = parent_post_data[0] + '.' + '{0:011d}'.format(parent_childs + 1)
 
 
     sql = "INSERT INTO post VALUES (null, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0)"
