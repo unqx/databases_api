@@ -210,11 +210,11 @@ def forum_list_users(request):
     else:
         order = 'desc'
 
-    sql = """SELECT u.id, username, email, name, about, is_anonymous FROM dbproject.user u
-             INNER JOIN dbproject.post p ON u.id = p.user_id
+    sql = """SELECT u.id, username, email, name, about, is_anonymous FROM dbproject.post p
+             LEFT JOIN dbproject.user u ON u.id = p.user_id
              WHERE p.forum_id=%s and p.user_id >= %s
              GROUP BY p.user_id
-             ORDER BY u.name """
+             ORDER BY name """
 
     sql += order
 

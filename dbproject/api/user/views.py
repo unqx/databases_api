@@ -301,8 +301,11 @@ def user_list_followers(request):
 
     cursor = connection.cursor()
 
-    sql = "SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous " \
-          "FROM user_user_follow LEFT JOIN user u ON from_user_id = u.id WHERE to_user_id = %s AND from_user_id>=%s ORDER BY u.name "
+    sql = """SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous
+             FROM user_user_follow
+             LEFT JOIN user u ON from_user_id = u.id
+             WHERE to_user_id = %s AND from_user_id>=%s
+             ORDER BY u.name """
 
     sql += order
 
@@ -399,8 +402,11 @@ def user_list_following(request):
 
     cursor = connection.cursor()
 
-    sql = "SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous " \
-          "FROM user_user_follow LEFT JOIN user u ON to_user_id = u.id WHERE from_user_id = %s AND to_user_id>=%s ORDER BY u.name "
+    sql = """SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous
+             FROM user_user_follow
+             LEFT JOIN user u ON to_user_id = u.id
+             WHERE from_user_id = %s AND to_user_id>=%s
+             ORDER BY u.name """
 
     sql += order
 
