@@ -4,7 +4,7 @@ from dbproject.users.models import User
 
 
 class Thread(models.Model):
-    forum_id = models.IntegerField()
+    forum_id = models.IntegerField(db_index=True)
     title = models.CharField(max_length=60)
     is_closed = models.BooleanField(default=False)
     user_id = models.IntegerField()
