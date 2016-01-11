@@ -3,11 +3,11 @@ from django.db import models
 
 class Post(models.Model):
     forum_id = models.IntegerField()
-    thread_id = models.IntegerField()
+    thread_id = models.IntegerField(db_index=True)
     user_id = models.IntegerField()
     message = models.TextField(max_length=1000)
     date = models.DateTimeField()
-    parent = models.IntegerField(default=None, null=True)
+    parent = models.IntegerField(default=None, null=True, db_index=True)
     path = models.CharField(null=True, default=None, max_length=1000)
     is_approved = models.BooleanField(default=False)
     is_highlited = models.BooleanField(default=False)
