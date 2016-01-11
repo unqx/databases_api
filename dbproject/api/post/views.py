@@ -17,167 +17,179 @@ def post_create(request):
 
     try:
         request_params = json.loads(request.body)
-
-        if not ('date' in request_params and 'thread' in request_params and 'message' in request_params
-            and 'user' in request_params and 'forum' in request_params):
-            return JsonResponse({
-                'code': 3,
-                'response': 'Missing field'
-            })
-
-        date = request_params.get('date')
-        thread_id = request_params.get('thread')
-        message = request_params.get('message')
-        user_email = request_params.get('user')
-        forum_name = request_params.get('forum')
-
-        # Optional params:
-        if 'isApproved' in request_params:
-            is_approved = request_params.get('isApproved')
-
-            if type(is_approved) is not bool:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong isApproved parameter type'
-                })
-        else:
-            is_approved = False
-
-        if 'isHighlighted' in request_params:
-            is_highlited = request_params.get('isHighlighted')
-
-            if type(is_highlited) is not bool:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong isHighlited parameter type'
-                })
-        else:
-            is_highlited = False
-
-        if 'isEdited' in request_params:
-            is_edited = request_params.get('isEdited')
-
-            if type(is_edited) is not bool:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong isEdited parameter type'
-                })
-        else:
-            is_edited = False
-
-        if 'isSpam' in request_params:
-            is_spam = request_params.get('isSpam')
-
-            if type(is_spam) is not bool:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong isSpam parameter type'
-                })
-        else:
-            is_spam = False
-
-        if 'isDeleted' in request_params:
-            is_deleted = request_params.get('isDeleted')
-
-            if type(is_deleted) is not bool:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong isDeleted parameter type'
-                })
-        else:
-            is_deleted = False
-
-        if 'parent' in request_params:
-            parent = request_params.get('parent')
-        else:
-            parent = None
-
-        forum_data = get_forum_by_shortname(forum_name)
-        if not forum_data:
-            return JsonResponse({
-                'code': 1,
-                'response': 'Forum does not exist'
-            })
-
-        thread_data = get_thread_by_id(thread_id)
-        if not thread_data:
-            return JsonResponse({
-                'code': 1,
-                'response': 'Thread does not exist'
-            })
-
-        user_data = get_user_by_email(user_email)
-        if not user_data:
-            return JsonResponse({
-                'code': 1,
-                'response': 'User does not exist'
-            })
-
-        cursor = connection.cursor()
-        cursor.execute("SELECT 1 FROM thread WHERE id=%s AND forum_id=%s", (thread_id, forum_data[0]))
-        data = cursor.fetchone()
-        if data is None:
-            return JsonResponse({
-                'code': 1,
-                'response': 'No such thread in provided forum'
-            })
-
-        if not parent:
-            cursor.execute("SELECT posts FROM thread WHERE id = %s", (thread_id,))
-            posts_count = int(cursor.fetchone()[0])
-            post_path = '{0:011d}'.format(posts_count + 1)
-
-        else:
-            try:
-                parent = int(parent)
-                cursor.execute("SELECT * FROM post WHERE id = %s AND thread_id = %s", (parent,thread_id))
-
-                parent_post_data = cursor.fetchone()
-                if not parent_post_data:
-                    return JsonResponse({
-                        'code': 1,
-                        'response': 'Post not found or post required is in another thread'
-                    })
-
-                cursor.execute("SELECT COUNT(*) FROM post WHERE parent = %s", (parent,))
-
-                parent_childs = int(cursor.fetchone()[0])
-                post_path = parent_post_data[7] + '.' + '{0:011d}'.format(parent_childs + 1)
-
-            except ValueError:
-                return JsonResponse({
-                    'code': 3,
-                    'response': 'Wrong parent parameter type'
-                })
-
-        sql = "INSERT INTO post VALUES (null, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0)"
-
-        insert_data = (forum_data[0], thread_data[0], user_data[0], message, date, parent, post_path, is_approved,
-                       is_highlited, is_spam, is_edited, is_deleted)
-
-        cursor.execute(sql, insert_data)
-
-        response.update({
-            'id': cursor.lastrowid,
-            'forum': forum_name,
-            'thread': thread_id,
-            'user': user_email,
-            'message': message,
-            'parent': parent,
-            'isSpam': is_spam,
-            'isHighlighted': is_highlited,
-            'isEdited': is_edited,
-            'isApproved': is_approved,
-            'date': date,
-        })
-
-        cursor.execute("UPDATE thread SET posts = posts+1 WHERE id = %s", (thread_id,))
-
     except ValueError:
         return JsonResponse({
             'code': 3,
             'response': 'No JSON object could be decoded'
         })
+
+    if not ('date' in request_params and 'thread' in request_params and 'message' in request_params
+        and 'user' in request_params and 'forum' in request_params):
+        return JsonResponse({
+            'code': 3,
+            'response': 'Missing field'
+        })
+
+    date = request_params.get('date')
+    thread_id = request_params.get('thread')
+    message = request_params.get('message')
+    user_email = request_params.get('user')
+    forum_name = request_params.get('forum')
+
+    cursor = connection.cursor()
+
+    # Optional params:
+    if 'isApproved' in request_params:
+        is_approved = request_params.get('isApproved')
+
+        if type(is_approved) is not bool:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong isApproved parameter type'
+            })
+    else:
+        is_approved = False
+
+    if 'isHighlighted' in request_params:
+        is_highlited = request_params.get('isHighlighted')
+
+        if type(is_highlited) is not bool:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong isHighlited parameter type'
+            })
+    else:
+        is_highlited = False
+
+    if 'isEdited' in request_params:
+        is_edited = request_params.get('isEdited')
+
+        if type(is_edited) is not bool:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong isEdited parameter type'
+            })
+    else:
+        is_edited = False
+
+    if 'isSpam' in request_params:
+        is_spam = request_params.get('isSpam')
+
+        if type(is_spam) is not bool:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong isSpam parameter type'
+            })
+    else:
+        is_spam = False
+
+    if 'isDeleted' in request_params:
+        is_deleted = request_params.get('isDeleted')
+
+        if type(is_deleted) is not bool:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong isDeleted parameter type'
+            })
+    else:
+        is_deleted = False
+
+    if 'parent' in request_params:
+        parent = request_params.get('parent')
+    else:
+        parent = None
+
+    forum_data = get_forum_by_shortname(cursor, forum_name)
+    if not forum_data:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'Forum does not exist'
+        })
+
+    thread_data = get_thread_by_id(thread_id)
+    if not thread_data:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'Thread does not exist'
+        })
+
+    user_data = get_user_by_email(user_email)
+    if not user_data:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'User does not exist'
+        })
+
+    cursor.execute("SELECT 1 FROM thread WHERE id=%s AND forum_id=%s", (thread_id, forum_data[0]))
+    data = cursor.fetchone()
+    if data is None:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'No such thread in provided forum'
+        })
+
+    if not parent:
+        cursor.execute("SELECT posts FROM thread WHERE id = %s", (thread_id,))
+        posts_count = int(cursor.fetchone()[0])
+        post_path = '{0:011d}'.format(posts_count + 1)
+
+    else:
+        try:
+            parent = int(parent)
+        except ValueError:
+            cursor.close()
+            return JsonResponse({
+                'code': 3,
+                'response': 'Wrong parent parameter type'
+            })
+
+        cursor.execute("SELECT * FROM post WHERE id = %s AND thread_id = %s", (parent,thread_id))
+
+        parent_post_data = cursor.fetchone()
+        if not parent_post_data:
+            cursor.close()
+            return JsonResponse({
+                'code': 1,
+                'response': 'Post not found or post required is in another thread'
+            })
+
+        cursor.execute("SELECT COUNT(*) FROM post WHERE parent = %s", (parent,))
+
+        parent_childs = int(cursor.fetchone()[0])
+        post_path = parent_post_data[7] + '.' + '{0:011d}'.format(parent_childs + 1)
+
+
+    sql = "INSERT INTO post VALUES (null, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, 0)"
+
+    insert_data = (forum_data[0], thread_data[0], user_data[0], message, date, parent, post_path, is_approved,
+                   is_highlited, is_spam, is_edited, is_deleted)
+
+    cursor.execute(sql, insert_data)
+
+    response.update({
+        'id': cursor.lastrowid,
+        'forum': forum_name,
+        'thread': thread_id,
+        'user': user_email,
+        'message': message,
+        'parent': parent,
+        'isSpam': is_spam,
+        'isHighlighted': is_highlited,
+        'isEdited': is_edited,
+        'isApproved': is_approved,
+        'date': date,
+    })
+
+    cursor.execute("UPDATE thread SET posts = posts+1 WHERE id = %s", (thread_id,))
 
     return JsonResponse({
         'code': 0,
@@ -300,7 +312,6 @@ def post_details(request):
 
     post_id = request.GET.get('post')
     post_data = get_post_by_id(post_id)
-    print post_data
 
     if not post_data:
         return JsonResponse({
@@ -603,10 +614,11 @@ def post_list(request):
     by_forum = 'forum' in request.GET
 
     search_by = None
+    cursor = connection.cursor()
 
     if by_forum:
         forum = request.GET.get('forum')
-        forum_data = get_forum_by_shortname(forum)
+        forum_data = get_forum_by_shortname(cursor, forum)
         if not forum_data:
             return JsonResponse({
                 'code': 1,
@@ -622,8 +634,6 @@ def post_list(request):
                 'response': 'Thread not found'
             })
         search_by = thread_id
-
-    cursor = connection.cursor()
 
     sql = "SELECT * FROM post WHERE date>=%s AND "
 

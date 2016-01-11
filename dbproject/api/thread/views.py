@@ -53,6 +53,8 @@ def thread_create(request):
                 'response': 'Wrong date format'
             })
 
+        cursor = connection.cursor()
+
         user_data = get_user_by_email(user)
         if not user_data:
             return JsonResponse({
@@ -60,14 +62,12 @@ def thread_create(request):
                 'response': 'User not found'
             })
 
-        forum_data = get_forum_by_shortname(forum)
+        forum_data = get_forum_by_shortname(cursor, forum)
         if not forum_data:
             return JsonResponse({
                 'code': 1,
                 'response': 'Forum not found'
             })
-
-        cursor = connection.cursor()
 
         sql_select = "SELECT * FROM thread WHERE title = %s AND forum_id = %s"
 
@@ -729,9 +729,10 @@ def thread_list(request):
 
     by_forum = 'forum' in request.GET
 
+    cursor = connection.cursor()
     if by_forum:
         forum = request.GET.get('forum')
-        forum_data = get_forum_by_shortname(forum)
+        forum_data = get_forum_by_shortname(cursor, forum)
         if not forum_data:
             return JsonResponse({
                 'code': 1,
@@ -747,8 +748,6 @@ def thread_list(request):
                 'response': 'Thread not found'
             })
         search_by = user_data[0]
-
-    cursor = connection.cursor()
 
     sql = "SELECT * FROM thread WHERE date>=%s AND "
 

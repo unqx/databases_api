@@ -92,7 +92,9 @@ def forum_details(request):
 
     forum = request.GET.get('forum')
 
-    forum_data = get_forum_by_shortname(forum)
+    cursor = connection.cursor()
+    forum_data = get_forum_by_shortname(cursor, forum)
+    cursor.close()
     if not forum_data:
         return JsonResponse({
             'code': 1,
@@ -161,8 +163,11 @@ def forum_list_users(request):
 
     forum = request.GET.get('forum')
 
-    forum_data = get_forum_by_shortname(forum)
+    cursor = connection.cursor()
+
+    forum_data = get_forum_by_shortname(cursor, forum)
     if not forum_data:
+        cursor.close()
         return JsonResponse({
             'code': 1,
             'response': 'Forum does not exist'
@@ -173,6 +178,7 @@ def forum_list_users(request):
         try:
             since_id = int(since_id)
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Since id param is wrong'
@@ -185,6 +191,7 @@ def forum_list_users(request):
         try:
             limit = int(limit)
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Limit param is wrong'
@@ -195,14 +202,13 @@ def forum_list_users(request):
     if "order" in request.GET:
         order = request.GET['order']
         if order != 'asc' and order != 'desc':
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Order param is wrong'
             })
     else:
         order = 'desc'
-
-    cursor = connection.cursor()
 
     sql = "SELECT * FROM user LEFT JOIN post p ON user.id = p.user_id WHERE p.forum_id = %s and user_id >= %s GROUP BY email ORDER BY name "
     sql += order
@@ -236,6 +242,7 @@ def forum_list_users(request):
             ]
         })
 
+    cursor.close()
     return JsonResponse({
         'code': 0,
         'response': response,
@@ -259,8 +266,11 @@ def forum_list_threads(request):
 
     forum = request.GET.get('forum')
 
-    forum_data = get_forum_by_shortname(forum)
+    cursor = connection.cursor()
+
+    forum_data = get_forum_by_shortname(cursor, forum)
     if not forum_data:
+        cursor.close()
         return JsonResponse({
             'code': 1,
             'response': 'Forum does not exist'
@@ -271,6 +281,7 @@ def forum_list_threads(request):
         try:
             since = datetime.datetime.strptime(since, '%Y-%m-%d %H:%M:%S')
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Since id param is wrong'
@@ -283,6 +294,7 @@ def forum_list_threads(request):
         try:
             limit = int(limit)
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Limit param is wrong'
@@ -293,6 +305,7 @@ def forum_list_threads(request):
     if "order" in request.GET:
         order = request.GET['order']
         if order != 'asc' and order != 'desc':
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Order param is wrong'
@@ -307,6 +320,7 @@ def forum_list_threads(request):
         related = request.GET.getlist('related')
         for r in related:
             if r != 'user' and r != 'forum':
+                cursor.close()
                 return JsonResponse({
                     'code': 3,
                     'response': 'Related param is wrong'
@@ -316,8 +330,6 @@ def forum_list_threads(request):
 
         if 'forum' in related:
             related_forum = True
-
-    cursor = connection.cursor()
 
     sql = "SELECT * FROM thread WHERE forum_id = %s AND date>=%s ORDER BY date "
     sql += order
@@ -381,6 +393,7 @@ def forum_list_threads(request):
             'points': t[11],
         })
 
+    cursor.close()
     return JsonResponse({
         'code': 0,
         'response': response,
@@ -403,8 +416,11 @@ def forum_list_posts(request):
         })
 
     forum = request.GET.get('forum')
-    forum_data = get_forum_by_shortname(forum)
+    cursor = connection.cursor()
+
+    forum_data = get_forum_by_shortname(cursor, forum)
     if not forum_data:
+        cursor.close()
         return JsonResponse({
             'code': 1,
             'response': 'Forum not found'
@@ -415,6 +431,7 @@ def forum_list_posts(request):
         try:
             since = datetime.datetime.strptime(since, '%Y-%m-%d %H:%M:%S')
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Since id param is wrong'
@@ -427,6 +444,7 @@ def forum_list_posts(request):
         try:
             limit = int(limit)
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Limit param is wrong'
@@ -437,6 +455,7 @@ def forum_list_posts(request):
     if "order" in request.GET:
         order = request.GET['order']
         if order != 'asc' and order != 'desc':
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Order param is wrong'
@@ -453,6 +472,7 @@ def forum_list_posts(request):
 
         for r in related:
             if r != 'forum' and r != 'user' and r != 'thread':
+                cursor.close()
                 return JsonResponse({
                     'code': 3,
                     'response': 'Wrong related params'
@@ -463,8 +483,6 @@ def forum_list_posts(request):
             thread_related = True
         if 'user' in related:
             user_related = True
-
-    cursor = connection.cursor()
 
     sql = "SELECT * FROM post WHERE forum_id = %s AND date>=%s ORDER BY date "
     sql += order
@@ -552,6 +570,7 @@ def forum_list_posts(request):
             'points': p[15],
         })
 
+    cursor.close()
     return JsonResponse({
         'code': 0,
         'response': response

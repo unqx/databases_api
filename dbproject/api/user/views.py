@@ -1,7 +1,7 @@
 import json
 import datetime
 from django.http import JsonResponse
-from django.db import connection
+from django.db import connection, IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 from dbproject.api.utils import get_user_by_email, get_follow_data, get_subscriptions, get_forum_by_id
 
@@ -38,14 +38,15 @@ def user_create(request):
 
         cursor = connection.cursor()
 
-        if get_user_by_email(email):
+        try:
+            sql = "INSERT INTO user VALUES (null,%s,%s,%s,%s,%s)"
+            cursor.execute(sql, (username, email, name, about, anon))
+        except IntegrityError as e:
+            cursor.close()
             return JsonResponse({
                 'code': 5,
                 'response': 'User with provided email already exists'
             })
-
-        sql = "INSERT INTO user VALUES (null,%s,%s,%s,%s,%s)"
-        cursor.execute(sql, (username, email, name, about, anon))
 
         response.update({
             'email': email,
