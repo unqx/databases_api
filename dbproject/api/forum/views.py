@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
 from dbproject.api.utils import get_user_by_email, get_user_by_id, get_forum_by_shortname, get_subscriptions, get_follow_data, get_thread_by_id
+from operator import itemgetter
 
 
 @csrf_exempt
@@ -212,13 +213,10 @@ def forum_list_users(request):
     else:
         order = 'desc'
 
-    sql = """SELECT u.id, username, email, name, about, is_anonymous FROM dbproject.post p
-             LEFT JOIN dbproject.user u ON u.id = p.user_id
+    sql = """SELECT u.id, username, email, name, about, is_anonymous FROM post p
+             LEFT JOIN user u ON u.id = p.user_id
              WHERE p.forum_id=%s and p.user_id >= %s
-             GROUP BY p.user_id
-             ORDER BY name """
-
-    sql += order
+             GROUP BY p.user_id"""
 
     if limit:
         sql += " LIMIT %s"
@@ -227,6 +225,14 @@ def forum_list_users(request):
         cursor.execute(sql, (forum_data[0], since_id))
 
     data = cursor.fetchall()
+
+    t1 = datetime.datetime.now()
+    if order == 'desc':
+        data = sorted(data, key=itemgetter(3), reverse=True)
+    else:
+        data = sorted(data, key=itemgetter(3))
+    t2=datetime.datetime.now()
+    print t2-t1
 
     for u in data:
         followers, following = get_follow_data(u[0])
@@ -249,7 +255,6 @@ def forum_list_users(request):
             ]
         })
 
-    cursor.close()
     return JsonResponse({
         'code': 0,
         'response': response,

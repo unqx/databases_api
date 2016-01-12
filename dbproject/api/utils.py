@@ -24,10 +24,10 @@ def get_user_by_id(i):
 def get_follow_data(user_id):
     cursor = connection.cursor()
 
-    sql_followers_raw = ("SELECT user.email "
-                         "FROM user_user_follow "
-                         "LEFT JOIN user on user.id = user_user_follow.from_user_id "
-                         "WHERE user_user_follow.to_user_id = '{0}'")
+    sql_followers_raw = ("""SELECT user.email
+                            FROM user_user_follow
+                            LEFT JOIN user on user.id = user_user_follow.from_user_id
+                            WHERE user_user_follow.to_user_id = '{0}'""")
 
     sql_followers = sql_followers_raw.format(user_id)
     cursor.execute(sql_followers)
