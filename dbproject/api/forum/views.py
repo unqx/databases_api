@@ -226,9 +226,8 @@ def forum_list_users(request):
              GROUP BY p.user_id"""
 
     if limit:
-        hack_limit = limit + 5
         sql += " LIMIT %s"
-        cursor.execute(sql, (forum_data[0], since_id, hack_limit))
+        cursor.execute(sql, (forum_data[0], since_id, limit))
     else:
         cursor.execute(sql, (forum_data[0], since_id))
 
@@ -241,11 +240,6 @@ def forum_list_users(request):
         data = sorted(data, key=itemgetter(3))
     t2=datetime.datetime.now()
     print t2-t1
-
-    if limit:
-        real = len(data)
-        if real > limit:
-            data = data[:-(real-limit)]
 
     for u in data:
         followers, following = get_follow_data(u[0])
