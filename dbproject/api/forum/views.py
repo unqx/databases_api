@@ -64,10 +64,17 @@ def forum_create(request):
                 'user': user
             }
 
+            cursor.close()
+
         except ValueError:
             response = {
                 'code': 3,
                 'response': 'No JSON object could be decoded'
+            }
+        except Exception:
+            response = {
+                'code': 4,
+                'response': 'Unknown error occured'
             }
 
     else:

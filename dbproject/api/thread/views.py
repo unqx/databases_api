@@ -797,6 +797,7 @@ def thread_list(request):
 
 @csrf_exempt
 def thread_list_posts(request):
+    t1 = datetime.datetime.now()
     response = []
     if not request.method == 'GET':
         return JsonResponse({
@@ -969,6 +970,9 @@ def thread_list_posts(request):
             'dislikes': p[14],
             'points': p[15],
         })
+
+    t2 = datetime.datetime.now()
+    print "ELAPSED: ", t2-t1
 
     return JsonResponse({
         'code': 0,
