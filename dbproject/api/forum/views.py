@@ -26,8 +26,9 @@ def forum_create(request):
 
             cursor = connection.cursor()
 
-            user_data = get_user_by_email(user)
+            user_data = get_user_by_email(cursor, user)
             if not user_data:
+                cursor.close()
                 response.update({
                     'code': 1,
                     'response': 'User not found'
@@ -46,6 +47,7 @@ def forum_create(request):
                     'short_name': short_name,
                     'user': get_user_by_id(sql_response[1])[2]
                 }
+                cursor.close()
                 return JsonResponse(response)
 
 

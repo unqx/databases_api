@@ -55,7 +55,7 @@ def thread_create(request):
 
         cursor = connection.cursor()
 
-        user_data = get_user_by_email(user)
+        user_data = get_user_by_email(cursor, user)
         if not user_data:
             return JsonResponse({
                 'code': 1,
@@ -129,53 +129,56 @@ def thread_subscribe(request):
 
     try:
         request_params = json.loads(request.body)
-
-        user_email = request_params.get('user', None)
-        thread_id = request_params.get('thread', None)
-
-        if not (user_email and thread_id):
-            return JsonResponse({
-                'code': 3,
-                'response': 'Missing field'
-            })
-
-        user_data = get_user_by_email(user_email)
-        if not user_data:
-            return JsonResponse({
-                'code': 1,
-                'response': 'User not found'
-            })
-
-        try:
-            thread_id = int(thread_id)
-        except ValueError:
-            return JsonResponse({
-                'code': 3,
-                'response': 'Wrong thread id param'
-            })
-
-        thread_data = get_thread_by_id(thread_id)
-        if not thread_data:
-            return JsonResponse({
-                'code': 1,
-                'response': 'Thread not found'
-            })
-
-        cursor = connection.cursor()
-        sql_raw = "INSERT IGNORE INTO subscriptions VALUES (null, '{0}', '{1}');"
-        sql = sql_raw.format(thread_id, user_data[0])
-        cursor.execute(sql)
-
-        response.update({
-            'user': user_data[2],
-            'thread': thread_id,
-        })
-
     except ValueError:
         return JsonResponse({
             'code': 3,
             'response': 'No JSON object could be decoded'
         })
+
+    user_email = request_params.get('user', None)
+    thread_id = request_params.get('thread', None)
+
+    if not (user_email and thread_id):
+        return JsonResponse({
+            'code': 3,
+            'response': 'Missing field'
+        })
+
+    cursor = connection.cursor()
+    user_data = get_user_by_email(cursor, user_email)
+    if not user_data:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'User not found'
+        })
+
+    try:
+        thread_id = int(thread_id)
+    except ValueError:
+        cursor.close()
+        return JsonResponse({
+            'code': 3,
+            'response': 'Wrong thread id param'
+        })
+
+    thread_data = get_thread_by_id(thread_id)
+    if not thread_data:
+        cursor.close()
+        return JsonResponse({
+            'code': 1,
+            'response': 'Thread not found'
+        })
+
+
+    sql_raw = "INSERT IGNORE INTO subscriptions VALUES (null, '{0}', '{1}');"
+    sql = sql_raw.format(thread_id, user_data[0])
+    cursor.execute(sql)
+
+    response.update({
+        'user': user_data[2],
+        'thread': thread_id,
+    })
 
     return JsonResponse({
         'code': 0,
@@ -204,8 +207,10 @@ def thread_unsubscribe(request):
                 'response': 'Missing field'
             })
 
-        user_data = get_user_by_email(user_email)
+        cursor = connection.cursor()
+        user_data = get_user_by_email(cursor, user_email)
         if not user_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'User not found'
@@ -214,6 +219,7 @@ def thread_unsubscribe(request):
         try:
             thread_id = int(thread_id)
         except ValueError:
+            cursor.close()
             return JsonResponse({
                 'code': 3,
                 'response': 'Wrong thread id param'
@@ -221,12 +227,12 @@ def thread_unsubscribe(request):
 
         thread_data = get_thread_by_id(thread_id)
         if not thread_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'Thread not found'
             })
 
-        cursor = connection.cursor()
         sql_raw = "DELETE FROM subscriptions WHERE thread_id = '{0}' AND user_id = '{1}';"
         sql = sql_raw.format(thread_id, user_data[0])
         cursor.execute(sql)
@@ -236,12 +242,13 @@ def thread_unsubscribe(request):
             'thread': thread_id,
         })
 
+        cursor.close()
+
     except ValueError:
         return JsonResponse({
             'code': 3,
             'response': 'No JSON object could be decoded'
         })
-
     return JsonResponse({
         'code': 0,
         'response': response
@@ -734,6 +741,7 @@ def thread_list(request):
         forum = request.GET.get('forum')
         forum_data = get_forum_by_shortname(cursor, forum)
         if not forum_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'Forum not found'
@@ -741,8 +749,9 @@ def thread_list(request):
         search_by = forum_data[0]
     else:
         user_email = request.GET.get('user')
-        user_data = get_user_by_email(user_email)
+        user_data = get_user_by_email(cursor, user_email)
         if not user_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'Thread not found'
@@ -765,8 +774,8 @@ def thread_list(request):
 
     for t in data:
         response.append({
-            'user': get_user_by_id(t[4])[2],
-            'forum': get_forum_by_id(t[1])[4],
+            'user': get_user_by_id(t[4])[2] if by_forum else user_data[2],
+            'forum': forum_data[4] if by_forum else get_forum_by_id(t[1])[4],
             'id': t[0],
             'title': t[2],
             'isClosed': bool(t[3]),

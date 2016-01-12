@@ -88,8 +88,8 @@ def user_follow(request):
 
         cursor = connection.cursor()
 
-        follower_user = get_user_by_email(follower)
-        followee_user = get_user_by_email(followee)
+        follower_user = get_user_by_email(cursor, follower)
+        followee_user = get_user_by_email(cursor, followee)
 
         if not (followee_user and follower_user):
             return JsonResponse({
@@ -154,8 +154,8 @@ def user_unfollow(request):
 
         cursor = connection.cursor()
 
-        follower_user = get_user_by_email(follower)
-        followee_user = get_user_by_email(followee)
+        follower_user = get_user_by_email(cursor, follower)
+        followee_user = get_user_by_email(cursor, followee)
 
         if not (followee_user and follower_user):
             return JsonResponse({
@@ -212,7 +212,8 @@ def user_details(request):
             'response': 'Missing field'
         })
 
-    user_data = get_user_by_email(user_email)
+    cursor = connection.cursor()
+    user_data = get_user_by_email(cursor, user_email)
     if not user_data:
         return JsonResponse({
             'code': 1,
@@ -292,14 +293,15 @@ def user_list_followers(request):
     else:
         order = 'desc'
 
-    user_data = get_user_by_email(request.GET.get('user'))
+    cursor = connection.cursor()
+
+    user_data = get_user_by_email(cursor, request.GET.get('user'))
     if not user_data:
+        cursor.close()
         return JsonResponse({
             'code': 1,
             'response': 'User does not exist'
         })
-
-    cursor = connection.cursor()
 
     sql = """SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous
              FROM user_user_follow
@@ -393,14 +395,15 @@ def user_list_following(request):
     else:
         order = 'desc'
 
-    user_data = get_user_by_email(request.GET.get('user'))
+    cursor = connection.cursor()
+
+    user_data = get_user_by_email(cursor, request.GET.get('user'))
     if not user_data:
         return JsonResponse({
             'code': 1,
             'response': 'User does not exist'
         })
 
-    cursor = connection.cursor()
 
     sql = """SELECT u.id, u.username, u.email, u.name, u.about, u.is_anonymous
              FROM user_user_follow
@@ -467,14 +470,15 @@ def user_update_profile(request):
         about = request_params.get('about')
         name = request_params.get('name')
 
-        user_data = get_user_by_email(user_email)
+        cursor = connection.cursor()
+
+        user_data = get_user_by_email(cursor, user_email)
         if not user_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'User does not exist'
             })
-
-        cursor = connection.cursor()
 
         sql = "UPDATE user SET name = %s, about = %s WHERE email = %s"
         cursor.execute(sql, (name, about, user_email))
@@ -529,9 +533,11 @@ def user_list_posts(request):
         })
 
     user_email = request.GET.get('user')
+    cursor = connection.cursor()
 
-    user_data = get_user_by_email(user_email)
+    user_data = get_user_by_email(cursor, user_email)
     if not user_data:
+        cursor.close()
         return JsonResponse({
             'code': 1,
             'response': 'User not found'

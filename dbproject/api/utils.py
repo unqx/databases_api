@@ -1,8 +1,7 @@
 from django.db import connection
 
 
-def get_user_by_email(email):
-    cursor = connection.cursor()
+def get_user_by_email(cursor, email):
     sql = ("SELECT * FROM user WHERE email = %s")
     cursor.execute(sql, (email,))
     data = cursor.fetchone()

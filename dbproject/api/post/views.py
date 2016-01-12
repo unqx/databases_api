@@ -122,7 +122,7 @@ def post_create(request):
             'response': 'Thread does not exist or no such thread in provided forum'
         })
 
-    user_data = get_user_by_email(user_email)
+    user_data = get_user_by_email(cursor, user_email)
     if not user_data:
         cursor.close()
         return JsonResponse({
