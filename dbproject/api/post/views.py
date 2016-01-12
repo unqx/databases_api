@@ -612,6 +612,7 @@ def post_list(request):
         forum = request.GET.get('forum')
         forum_data = get_forum_by_shortname(cursor, forum)
         if not forum_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'Forum not found'
@@ -621,6 +622,7 @@ def post_list(request):
         thread_id = request.GET.get('thread')
         thread_data = get_thread_by_id(thread_id)
         if not thread_data:
+            cursor.close()
             return JsonResponse({
                 'code': 1,
                 'response': 'Thread not found'
@@ -641,12 +643,14 @@ def post_list(request):
 
     data = cursor.fetchall()
 
+    forum_cache = {}
+    user_cache = {}
     for p in data:
         response.append({
             'id': int(p[0]),
-            'forum': get_forum_by_id(p[1])[4],
+            'forum': forum_data[4] if by_forum else forum_cache.setdefault(p[1], get_forum_by_id(p[1])[4]),
             'thread': p[2],
-            'user': get_user_by_id(p[3])[2],
+            'user': user_cache.setdefault(p[3], get_user_by_id(p[3])[2]),
             'message': p[4],
             'date': p[5].strftime('%Y-%m-%d %H:%M:%S'),
             'parent': p[6],

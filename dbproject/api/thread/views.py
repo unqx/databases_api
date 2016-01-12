@@ -951,13 +951,14 @@ def thread_list_posts(request):
             for p1 in data2:
                 data.append(p1)
 
-
+    forum_cache = {}
+    user_cache = {}
     for p in data:
         response.append({
             'id': p[0],
-            'forum': get_forum_by_id(p[1])[4],
+            'forum': forum_cache.setdefault(p[1], get_forum_by_id(p[1])[4]),
             'thread': int(thread_id),
-            'user': get_user_by_id(p[3])[2],
+            'user': user_cache.setdefault(p[3], get_user_by_id(p[3])[2]),
             'message': p[4],
             'date': p[5].strftime('%Y-%m-%d %H:%M:%S'),
             'parent': p[6],
