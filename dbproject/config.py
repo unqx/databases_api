@@ -4,5 +4,6 @@ DATABASES = {
         'USER': 'root',
         'PASSWORD': '',
         'NAME': 'dbproject',
+        # 'NAME': 'my_db',
     }
 }

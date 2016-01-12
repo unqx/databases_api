@@ -1,5 +1,5 @@
 from django.db import connection
-
+from operator import itemgetter
 
 def get_user_by_email(cursor, email):
     sql = ("SELECT * FROM user WHERE email = %s")

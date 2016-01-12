@@ -649,11 +649,9 @@ def thread_vote(request):
     cursor = connection.cursor()
 
     if vote == 1:
-        cursor.execute("UPDATE thread SET likes=likes+1 WHERE id=%s", (thread_id,))
+        cursor.execute("UPDATE thread SET likes=likes+1, points=points+%s WHERE id=%s", (vote, thread_id))
     else:
-        cursor.execute("UPDATE thread SET dislikes=dislikes+1 WHERE id=%s", (thread_id,))
-
-    cursor.execute("UPDATE thread SET points=points+%s WHERE id=%s", (vote, thread_id))
+        cursor.execute("UPDATE thread SET dislikes=dislikes+1, points=points+%s WHERE id=%s", (vote, thread_id))
 
     thread_data = get_thread_by_id(thread_id)
 
@@ -772,10 +770,12 @@ def thread_list(request):
 
     data = cursor.fetchall()
 
+    user_cache = {}
+    forum_cache = {}
     for t in data:
         response.append({
-            'user': get_user_by_id(t[4])[2] if by_forum else user_data[2],
-            'forum': forum_data[4] if by_forum else get_forum_by_id(t[1])[4],
+            'user': user_cache.setdefault(t[4], get_user_by_id(t[4])[2]) if by_forum else user_data[2],
+            'forum': forum_data[4] if by_forum else forum_cache.setdefault(t[1], get_forum_by_id(t[1])[4]),
             'id': t[0],
             'title': t[2],
             'isClosed': bool(t[3]),
@@ -866,6 +866,7 @@ def thread_list_posts(request):
 
     cursor = connection.cursor()
 
+    data = {}
     if sort == 'flat':
         sql = "SELECT * FROM post WHERE thread_id = %s AND date>=%s ORDER BY date "
         sql += order
@@ -878,78 +879,78 @@ def thread_list_posts(request):
 
         data = cursor.fetchall()
 
-    elif sort == 'tree':
-        if order == 'asc':
-            sql = "SELECT * FROM post WHERE thread_id = %s AND date>=%s ORDER BY path ASC"
+    # elif sort == 'tree':
+    #     if order == 'asc':
+    #         sql = "SELECT * FROM post WHERE thread_id = %s AND date>=%s "
+    #
+    #         if limit:
+    #             sql += " LIMIT %s"
+    #             cursor.execute(sql, (thread_id, since, limit))
+    #         else:
+    #             cursor.execute(sql, (thread_id, since))
+    #
+    #         data = cursor.fetchall()
 
-            if limit:
-                sql += " LIMIT %s"
-                cursor.execute(sql, (thread_id, since, limit))
-            else:
-                cursor.execute(sql, (thread_id, since))
-
-            data = cursor.fetchall()
-
-        else:
-            # tree -> desc
-            query = "SELECT * FROM post " \
-                    "WHERE date>=%s AND thread_id=%s AND parent IS NULL ORDER BY path DESC"
-            query += " LIMIT %s" if limit is not None else ""
-            sql_data = (since, thread_id, limit) if limit is not None else (since, thread_id)
-
-            cursor.execute(query, sql_data)
-            roots = cursor.fetchall()
-            data = []
-            if limit:
-                # tree -> desc -> limit
-                posts = 0
-                for root in roots:
-                    if posts < limit:
-                        data.append(root)
-                        posts += 1
-                        if posts < limit:
-                            parent_path = root[7] + '.%'
-                            query = "SELECT * FROM post " \
-                                    "WHERE path LIKE %s ORDER BY path ASC LIMIT %s"
-                            sql_data = (parent_path, limit)
-                            cursor.execute(query, sql_data)
-                            children = cursor.fetchall()
-                            for child in children:
-                                if posts < limit:
-                                    data.append(child)
-                                    posts += 1
-            else:
-                # tree -> desc -> no limit
-                for p in roots:
-                    data.append(p)
-                    parent_path = p[7] + '.%'
-                    query = "SELECT * FROM post " \
-                            "WHERE path LIKE %s ORDER BY path ASC"
-                    sql_data = (parent_path,)
-                    cursor.execute(query, sql_data)
-                    data2 = cursor.fetchall()
-                    for p1 in data2:
-                        data.append(p1)
-    else:
-        # parent_tree
-        query = "SELECT * FROM post " \
-                "WHERE date>=%s AND thread_id=%s AND parent IS NULL ORDER BY date "
-        query += order
-        query += " LIMIT %s" if limit is not None else ""
-        sql_data = (since, thread_id, limit) if limit is not None else (since, thread_id)
-        cursor.execute(query, sql_data)
-        data1 = cursor.fetchall()
-        data = []
-        for p in data1:
-            data.append(p)
-            parent_path = p[7] + '.%'
-            query = "SELECT * FROM post " \
-                    "WHERE path LIKE %s ORDER BY path ASC"
-            sql_data = (parent_path,)
-            cursor.execute(query, sql_data)
-            data2 = cursor.fetchall()
-            for p1 in data2:
-                data.append(p1)
+    #     else:
+    #         # tree -> desc
+    #         query = "SELECT * FROM post " \
+    #                 "WHERE date>=%s AND thread_id=%s AND parent IS NULL "
+    #         query += " LIMIT %s" if limit is not None else ""
+    #         sql_data = (since, thread_id, limit) if limit is not None else (since, thread_id)
+    #
+    #         cursor.execute(query, sql_data)
+    #         roots = cursor.fetchall()
+    #         data = []
+    #         if limit:
+    #             # tree -> desc -> limit
+    #             posts = 0
+    #             for root in roots:
+    #                 if posts < limit:
+    #                     data.append(root)
+    #                     posts += 1
+    #                     if posts < limit:
+    #                         parent_path = root[7] + '.%'
+    #                         query = "SELECT * FROM post " \
+    #                                 "WHERE path LIKE %s LIMIT %s"
+    #                         sql_data = (parent_path, limit)
+    #                         cursor.execute(query, sql_data)
+    #                         children = cursor.fetchall()
+    #                         for child in children:
+    #                             if posts < limit:
+    #                                 data.append(child)
+    #                                 posts += 1
+    #         else:
+    #             # tree -> desc -> no limit
+    #             for p in roots:
+    #                 data.append(p)
+    #                 parent_path = p[7] + '.%'
+    #                 query = "SELECT * FROM post " \
+    #                         "WHERE path LIKE %s "
+    #                 sql_data = (parent_path,)
+    #                 cursor.execute(query, sql_data)
+    #                 data2 = cursor.fetchall()
+    #                 for p1 in data2:
+    #                     data.append(p1)
+    # else:
+    #     # parent_tree
+    #     query = "SELECT * FROM post " \
+    #             "WHERE date>=%s AND thread_id=%s AND parent IS NULL ORDER BY date "
+    #     query += order
+    #     query += " LIMIT %s" if limit is not None else ""
+    #     sql_data = (since, thread_id, limit) if limit is not None else (since, thread_id)
+    #     cursor.execute(query, sql_data)
+    #     data1 = cursor.fetchall()
+    #     data = []
+    #     for p in data1:
+    #         data.append(p)
+    #         parent_path = p[7] + '.%'
+    #         query = "SELECT * FROM post " \
+    #                 "WHERE path LIKE %s "
+    #         sql_data = (parent_path,)
+    #         cursor.execute(query, sql_data)
+    #         data2 = cursor.fetchall()
+    #         for p1 in data2:
+    #             data.append(p1)
 
     forum_cache = {}
     user_cache = {}
