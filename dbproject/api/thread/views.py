@@ -836,6 +836,7 @@ def thread_list_posts(request):
         limit = request.GET['limit']
         try:
             limit = int(limit)
+            limit = 4
         except ValueError:
             return JsonResponse({
                 'code': 3,
@@ -890,7 +891,7 @@ def thread_list_posts(request):
     #             cursor.execute(sql, (thread_id, since))
     #
     #         data = cursor.fetchall()
-
+    #
     #     else:
     #         # tree -> desc
     #         query = "SELECT * FROM post " \
